@@ -9,11 +9,10 @@ class TODO {
       createTodo: document.querySelector("#create-todo"),
       updateTodo: document.querySelector("#update-todo"),
       displayDiv: document.querySelector(".todoDisplay"),
-      Todos: [],
     };
 
     this.state = false;
-    this.todoList = [];
+    this.Todos = [];
   }
 
   displayTodos() {
@@ -25,31 +24,76 @@ class TODO {
       createTodo,
       updateTodo,
       displayDiv,
-      Todos,
     } = this.args;
 
     createTodo.style.display = "none";
     updateTodo.style.display = "none";
 
-    this.updateTodoView(
-      displayDiv,
-      idLabel,
-      timeLabel,
-      todoInput,
-      updateTodo,
-      Todos
-    );
+    this.getAllTodos(displayDiv);
 
-    newTodo.addEventListener(
-      "click",
-      () => this.mapDateAndTime(idLabel, timeLabel, createTodo),
-      this.generateID(),
-      this.getTimeStamp()
-    );
+    newTodo.addEventListener("click", () => {
+      this.mapDateAndTime(idLabel, timeLabel, createTodo);
+      this.generateID();
+      this.getTimeStamp();
+    });
 
     createTodo.addEventListener("click", () => {
       this.onSubmitTodo(idLabel, timeLabel, todoInput, createTodo, updateTodo);
     });
+
+    this.manageTodoItems(displayDiv, idLabel, timeLabel, todoInput, updateTodo);
+  }
+
+  getAllTodos(displayDiv) {
+    axios
+      .get("http://localhost:8000/posts")
+      .then((res) => {
+        this.Todos.push(...res.data);
+        if (this.Todos.length == 0) {
+          displayDiv.innerHTML += `
+          <div class = "empty-todo">
+          <img src="./assets/images/undraw_empty_xct9.png" alt="empty image" style="width: 50%;">
+          <br>
+          <span style="font-family: 'Fira Sans', sans-serif; font-size: 20px; font-weight: bold; padding: 1em; cursor: unset;">There are no todos yet...</span>
+          <br>
+          </div>
+          `;
+        } else {
+          for (let key in this.Todos) {
+            let todo = this.Todos[key];
+            displayDiv.innerHTML += `
+            <div id="${todo.id}" class="${todo.status}">
+            <span id="${todo.message}" class="todoItem">
+              <div>
+              ${
+                todo.status === "Complete"
+                  ? `<p style="text-decoration: line-through;" id="todoMessage">${todo.message}</p>`
+                  : `<p id="todoMessage">${todo.message}</p>`
+              }
+                <p id="todoTimestamp">${todo.time}</p>
+              </div>
+              ${
+                todo.status === "Complete"
+                  ? `<p class="todo-status complete">▪️ ${todo.status} ▪️</p>`
+                  : `<p class="todo-status incomplete">▪️ ${todo.status} ▪️</p>`
+              }
+              <div id="${todo.id}" class="edit-todo-icons">
+                <i class="far fa-edit"></i>
+                <i class="far fa-trash-alt"></i>
+                ${
+                  todo.status === "Complete"
+                    ? ""
+                    : '<i class="fas fa-check"></i>'
+                }
+              </div>
+            </span>
+          </div>`;
+          }
+        }
+      })
+      .catch((error) => {
+        console.log(error);
+      });
   }
 
   generateID() {
@@ -81,10 +125,7 @@ class TODO {
     const time = timeLabel.value;
     const message = this.convertToString(todoInput.value);
     const status = "Not complete";
-    axios
-      .post("http://localhost:8000/posts", { id, time, message, status })
-      .then((res) => console.log(res.data))
-      .catch((error) => console.log(error));
+    this.addNewTodo(id, time, message, status);
     idLabel.value = "";
     timeLabel.value = "";
     todoInput.value = "";
@@ -101,56 +142,14 @@ class TODO {
     }
   }
 
-  updateTodoView(displaydiv, idLabel, timeLabel, todoInput, updateTodo, Todos) {
+  addNewTodo(id, time, message, status) {
     axios
-      .get("http://localhost:8000/posts")
-      .then((res) => {
-        Todos.push([...res.data]);
-        if (Todos[0].length == 0) {
-          displaydiv.innerHTML += `
-          <div class = "empty-todo">
-          <img src="./assets/images/undraw_empty_xct9.png" alt="empty image" style="width: 50%;">
-          <br>
-          <span style="font-family: 'Fira Sans', sans-serif; font-size: 20px; font-weight: bold; padding: 1em; cursor: unset;">There are no todos yet...</span>
-          <br>
-          </div>
-          `;
-        } else {
-          for (let key in Todos[0]) {
-            let todo = Todos[0][key];
-            displaydiv.innerHTML += `
-            <div id="${todo.id}">
-            <span id="${todo.message}" class="todoItem">
-              <div>
-              ${
-                todo.status === "Complete"
-                  ? `<p style="text-decoration: line-through;" id="todoMessage">${todo.message}</p>`
-                  : `<p id="todoMessage">${todo.message}</p>`
-              }
-                <p id="todoTimestamp">${todo.time}</p>
-              </div>
-              ${
-                todo.status === "Complete"
-                  ? `<p class="todo-status complete">▪️ ${todo.status} ▪️</p>`
-                  : `<p class="todo-status incomplete">▪️ ${todo.status} ▪️</p>`
-              }
-              <div id="${this.todoList.id}" class="edit-todo-icons">
-                <i class="far fa-edit"></i>
-                <i class="far fa-trash-alt"></i>
-                ${
-                  todo.status === "Complete"
-                    ? ""
-                    : '<i class="fas fa-check"></i>'
-                }
-              </div>
-            </span>
-          </div>`;
-          }
-        }
-      })
-      .catch((error) => {
-        console.log(error);
-      });
+      .post("http://localhost:8000/posts", { id, time, message, status })
+      .then((res) => console.log(res.data))
+      .catch((error) => console.log(error));
+  }
+
+  manageTodoItems(displaydiv, idLabel, timeLabel, todoInput, updateTodo) {
     displaydiv.addEventListener("click", (e) => {
       const identifier = e.target.parentElement.parentElement.parentElement.id;
       const todoMessage = e.target.parentElement.parentElement.id;
@@ -159,85 +158,41 @@ class TODO {
           idLabel,
           identifier,
           timeLabel,
-          todoMessage,
           todoInput,
-          updateTodo,
-          Todos
+          todoMessage,
+          updateTodo
         );
       }
 
       if (e.target.classList.contains("fa-trash-alt")) {
-        this.deleteTodo(Todos, identifier);
+        this.deleteTodo(identifier);
       }
 
       if (e.target.classList.contains("fa-check")) {
-        this.markTodoAsComplete(Todos, identifier);
+        // this.markTodoAsComplete();
       }
     });
   }
 
-  editTodo(
-    idLabel,
-    identifier,
-    timeLabel,
-    todoMessage,
-    todoInput,
-    updateTodo,
-    Todos
-  ) {
-    updateTodo.style.display = "block";
-    idLabel.value = identifier;
-    timeLabel.value = this.getTimeStamp();
-    todoInput.value = todoMessage;
+  editTodo(id, currentId, time, message, currentmsg, updateButton) {
+    id.value = currentId;
+    time.value = this.getTimeStamp();
+    message.value = currentmsg;
+    updateButton.style.display = "block";
 
-    updateTodo.addEventListener("click", () => {
-      this.updateTodoItem(
-        idLabel.value,
-        timeLabel.value,
-        todoInput.value,
-        updateTodo,
-        Todos
-      );
-
-      idLabel.value = "";
-      timeLabel.value = "";
-      todoInput.value = "";
+    updateButton.addEventListener("click", () => {
+      id.value = "";
+      time.value = "";
+      message.value = "";
+      updateButton.style.display = "none";
     });
   }
 
-  deleteTodo = (Todos, itemId) => {
-    Todos = Todos[0].filter((todo) => todo.id != itemId);
+  deleteTodo = (itemId) => {
+    axios
+      .delete(`http://localhost:8000/posts/${itemId}`)
+      .then(this.getAllTodos());
   };
-
-  updateTodoItem(Todos, idLabel, timeLabel, todoInput, updateTodo) {
-    const todos = Todos[0].map((todo) => {
-      if (todo.id === idLabel.value) {
-        todo.timestamp = timeLabel.value;
-        todo.body = todoInput.value;
-        todo.status = "Not complete";
-        return todo;
-      } else {
-        return todo;
-      }
-    });
-    Todos[0] = todos;
-    idLabel.value = "";
-    timeLabel.value = "";
-    todoInput.value = "";
-    updateTodo.style.display = "none";
-  }
-
-  markTodoAsComplete(Todos, itemId) {
-    const todos = Todos[0].map((todo) => {
-      if (todo.id === itemId) {
-        todo.status = "Complete";
-        return todo;
-      } else {
-        return todo;
-      }
-    });
-    Todos[0] = todos;
-  }
 }
 const todoItem = new TODO();
 todoItem.displayTodos();
